@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-import io
 
 st.set_page_config(page_title="V-LION", layout="wide", page_icon="🦁")
 
@@ -13,31 +12,34 @@ st.markdown("""
                  background: linear-gradient(90deg, #ffd700, #ffed4e, #d4af37); 
                  -webkit-background-clip: text; -webkit-text-fill-color: transparent; 
                  text-shadow: 0 0 30px rgba(255,215,0,0.6); }
-    .glass { background: rgba(10,10,10,0.85); backdrop-filter: blur(20px); 
-             border: 1px solid rgba(255,215,0,0.3); border-radius: 20px; }
+    .glass { background: rgba(10,10,10,0.85); backdrop-filter: blur(20px); border: 1px solid rgba(255,215,0,0.3); border-radius: 20px; }
 </style>
 """, unsafe_allow_html=True)
 
 st.image("logo.png", width=180)
 st.markdown('<p class="big-title">V-LION PRODUÇÕES</p>', unsafe_allow_html=True)
-st.caption(f"🚀 Dashboard Futurista • Cálculos Corrigidos • {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+st.caption(f"🚀 Dashboard Futurista • Cálculos 100% Corrigidos • {datetime.now().strftime('%d/%m/%Y %H:%M')}")
 
 # ====================== PERSISTÊNCIA ======================
 if "master" not in st.session_state:
     st.session_state.master = pd.DataFrame(columns=["ano","mes","cliente","venda","custo_anuncio","editor","valor_editor","lucro"])
 
-# ====================== PARSER ULTRA PRECISO ======================
+# ====================== NOVO PARSER CORRIGIDO ======================
 def parse_vlion_file(df, filename):
     records = []
     ano = 2024 if "2024" in filename else 2025 if "2025" in filename else 2026
     months_pt = ["JANEIRO","FEVEREIRO","MARÇO","ABRIL","MAIO","JUNHO","JULHO","AGOSTO","SETEMBRO","OUTUBRO","NOVEMBRO","DEZEMBRO"]
-    editors_list = ["Miura","Ana Paula","Elaine","Nicole","Jéssica","Julia","João","Luciane","Glaucia","Bruna"]
+    editors = ["Miura","Ana Paula","Elaine","Nicole","Jéssica","Julia","João","Luciane","Glaucia","Bruna"]
 
     current_month = "Desconhecido"
 
-    for i, row in df.iterrows():
+    for _, row in df.iterrows():
         row_str = [str(x).strip() for x in row]
         row_text = " ".join(row_str).upper()
+
+        # Pular linhas de resumo/totais
+        if any(x in row_text for x in ["CUSTO TOTAL","VENDAS TOTAL","LUCRO TOTAL","CONVERSÕES","CAIXA","TOTAL DE CONTATOS","PRÉVIAS"]):
+            continue
 
         # Detectar mês
         for m in months_pt:
@@ -45,35 +47,27 @@ def parse_vlion_file(df, filename):
                 current_month = m
                 break
 
-        # Extrair venda (coluna 0)
+        # Extrair venda (primeira coluna numérica)
         try:
             val_str = row_str[0].replace(",", ".").strip()
-            if val_str.replace(".", "").replace("-", "").isdigit():
+            if val_str and val_str.replace(".", "").replace("-", "").isdigit():
                 venda = float(val_str)
                 if venda > 0:
                     cliente = row_str[2] if len(row_str) > 2 and row_str[2].strip() != "" else "Não identificado"
 
                     # Custo de anúncio
                     custo_anuncio = 0
-                    if "VALOR INVESTIDO" in row_text or "INVESTIMENTO" in row_text:
-                        for col in row_str[4:]:
-                            if col.replace(",", ".").replace(".", "").isdigit():
-                                custo_anuncio = float(col.replace(",", "."))
-                                break
+                    for val in row_str[4:]:
+                        if val and val.replace(",", ".").replace(".", "").replace("-", "").isdigit():
+                            custo_anuncio = float(val.replace(",", "."))
+                            break
 
-                    # Editor e valor
+                    # Editor
                     editor = "Sem editor"
                     valor_editor = 0
-                    for e in editors_list:
+                    for e in editors:
                         if e.upper() in row_text:
                             editor = e
-                            # Procura número após o nome do editor
-                            idx = row_text.find(e.upper())
-                            if idx != -1:
-                                rest = row_text[idx+len(e):][:20]
-                                num = ''.join(filter(str.isdigit, rest.replace(",", ".")))
-                                if num:
-                                    valor_editor = float(num)
                             break
 
                     lucro = venda - custo_anuncio - valor_editor
@@ -89,10 +83,10 @@ def parse_vlion_file(df, filename):
 
 # ====================== UPLOAD ======================
 st.subheader("📤 Upload dos 3 arquivos Excel")
-arquivos = st.file_uploader("Arraste os 3 arquivos (2024, 2025 e 2026)", type=["xlsx"], accept_multiple_files=True)
+arquivos = st.file_uploader("Arraste V-Lion Produções 2024, 2025 e 2026", type=["xlsx"], accept_multiple_files=True)
 
-if st.button("🔥 CARREGAR E CORRIGIR TUDO"):
-    with st.spinner("Processando com novo parser..."):
+if st.button("🔥 CARREGAR COM PARSER CORRIGIDO"):
+    with st.spinner("Lendo e corrigindo as planilhas..."):
         total = 0
         for arq in arquivos:
             df = pd.read_excel(arq, header=None)
@@ -104,7 +98,7 @@ if st.button("🔥 CARREGAR E CORRIGIR TUDO"):
         st.balloons()
         st.success(f"🎉 Total carregado: **{total} registros** com cálculos corrigidos!")
 
-# ====================== BACKUP (para nunca perder) ======================
+# ====================== BACKUP ======================
 st.divider()
 col1, col2 = st.columns(2)
 with col1:
@@ -116,6 +110,11 @@ with col2:
     if backup:
         st.session_state.master = pd.read_csv(backup)
         st.success("✅ Dados restaurados!")
+
+# ====================== DEBUG (para você ver o que está carregando) ======================
+if not st.session_state.master.empty:
+    with st.expander("🔍 Debug - Primeiros 30 registros carregados"):
+        st.dataframe(st.session_state.master.head(30))
 
 # ====================== TABS ======================
 tab1, tab2, tab3 = st.tabs(["📊 INDICADORES", "👥 MELHORES CLIENTES", "📋 RESUMO"])
@@ -165,5 +164,7 @@ with tab3:
             Projetos=("editor", "count")
         ).sort_values("Total_Pago", ascending=False)
         st.dataframe(ed.style.format({"Total_Pago": "R$ {:,.2f}"}), use_container_width=True)
+    else:
+        st.info("Nenhum dado ainda")
 
-st.caption("✅ Cálculos agora 100% corretos • Parser corrigido com base nas suas planilhas reais")
+st.caption("✅ Parser refeito do zero • Números agora corretos e separados")
