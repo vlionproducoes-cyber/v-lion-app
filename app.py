@@ -21,7 +21,7 @@ st.markdown("""
 
 st.image("logo.png", width=180)
 st.markdown('<p class="big-title">V-LION PRODUÇÕES</p>', unsafe_allow_html=True)
-st.caption(f"🚀 Dashboard Futurista • Parser 100% Seguro • {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+st.caption(f"🚀 Dashboard Futurista • Parser Ultra Seguro • {datetime.now().strftime('%d/%m/%Y %H:%M')}")
 
 if "master" not in st.session_state:
     st.session_state.master = pd.DataFrame(columns=["ano", "mes", "cliente", "venda", "custo_anuncio", "editor", "valor_editor", "lucro"])
@@ -35,7 +35,7 @@ def parse_vlion_file(df, filename):
     months_pt = ["JANEIRO","FEVEREIRO","MARÇO","ABRIL","MAIO","JUNHO","JULHO","AGOSTO","SETEMBRO","OUTUBRO","NOVEMBRO","DEZEMBRO"]
 
     for _, row in df.iterrows():
-        # CONVERSÃO 100% SEGURA (resolve o erro de join)
+        # CONVERSÃO TOTALMENTE SEGURA
         row_text = " ".join(str(x).strip() for x in row).upper()
 
         # Detecta mês
@@ -85,7 +85,7 @@ if st.button("🔥 CARREGAR TODAS AS PLANILHAS AGORA"):
         st.balloons()
         st.success(f"🎉 Total de {total} vendas carregadas com sucesso!")
 
-# ====================== DASHBOARD ======================
+# ====================== DASHBOARD (mais próximo do Canva) ======================
 if not st.session_state.master.empty:
     tv = st.session_state.master["venda"].sum()
     te = st.session_state.master["valor_editor"].sum()
@@ -99,8 +99,7 @@ if not st.session_state.master.empty:
 else:
     st.info("👆 Faça upload dos 3 arquivos para começar")
 
-# Tabs e funções extras
-st.caption("✅ App V-Lion • Design igual ao Canva • Parser corrigido")
+st.caption("✅ App V-Lion • Design futurista • Parser corrigido • Mais próximo do seu Canva")
 
 if not st.session_state.master.empty:
     st.download_button("📥 Baixar todos os dados", st.session_state.master.to_csv(index=False).encode(), "v-lion_dados_completos.csv", "text/csv")
