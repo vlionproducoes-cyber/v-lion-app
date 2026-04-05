@@ -1,98 +1,96 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
-import pdfplumber
 from io import BytesIO
 from datetime import datetime
 
-st.set_page_config(page_title="V-LION PRODUÇÕES", layout="wide", page_icon="🦁")
+st.set_page_config(page_title="V-LION", layout="wide", page_icon="🦁")
 
-# === BRANDING ===
+# === DESIGN FUTURISTA / NEON ===
 st.markdown("""
 <style>
-    .stApp { background-color: #0F0F0F; color: #F5C400; }
-    .big-title { font-size: 48px; font-weight: bold; color: #F5C400; text-align: center; }
+    .stApp { background: linear-gradient(180deg, #0a0a0a, #1a1a2e); color: #f5c400; }
+    .big-title { font-size: 52px; font-weight: bold; background: linear-gradient(90deg, #f5c400, #ffd700); 
+                 -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-align: center; }
+    .neon { text-shadow: 0 0 10px #f5c400, 0 0 20px #f5c400; }
+    .metric { background: rgba(245, 196, 0, 0.1); border-radius: 15px; padding: 15px; text-align: center; }
 </style>
 """, unsafe_allow_html=True)
 
-# Logo
-st.image("logo.png", width=280)  # sua logo.png que você subiu
+# Logo menor e bonita
+st.image("logo.png", width=220)
 
-st.markdown('<p class="big-title">V-LION PRODUÇÕES</p>', unsafe_allow_html=True)
-st.caption(f"Dashboard completo • Editores • {datetime.now().strftime('%d/%m/%Y')}")
+st.markdown('<p class="big-title neon">V-LION PRODUÇÕES</p>', unsafe_allow_html=True)
+st.caption(f"🚀 Dashboard Futurista • Editores • {datetime.now().strftime('%d/%m/%Y %H:%M')}")
 
-# Persistência dos dados
-if "master" not in st.session_state:
-    st.session_state.master = pd.DataFrame(columns=["data", "cliente", "venda", "custo_anuncio", "editor", "valor_editor", "lucro"])
+# Persistência
+if "dados" not in st.session_state:
+    st.session_state.dados = pd.DataFrame(columns=["ano", "cliente", "venda", "custo_anuncio", "editor", "valor_editor", "lucro"])
 
-# Upload de arquivos
-st.subheader("📤 Anexe seus arquivos (Excel 2024 + PDFs 2025/2026)")
-uploaded = st.file_uploader("Escolha os arquivos", type=["xlsx", "pdf"], accept_multiple_files=True)
+# Upload
+st.subheader("📤 Upload dos arquivos Excel (2024, 2025, 2026)")
+arquivos = st.file_uploader("Arraste os 3 arquivos aqui", type=["xlsx"], accept_multiple_files=True)
 
-if st.button("🔄 Processar arquivos agora"):
+if st.button("🔥 Processar arquivos agora"):
     with st.spinner("Processando seus arquivos..."):
-        for file in uploaded:
-            if file.name.endswith(".xlsx"):
-                df = pd.read_excel(file, header=None)
-                st.success(f"✅ Excel {file.name} processado")
-                # Aqui podemos adicionar lógica de extração mais precisa se quiser
-            else:
-                with pdfplumber.open(file) as pdf:
-                    text = "\n".join([p.extract_text() or "" for p in pdf.pages])
-                st.success(f"✅ PDF {file.name} detectado")
-        st.success("Todos os arquivos foram processados!")
+        for arq in arquivos:
+            try:
+                df = pd.read_excel(arq, header=None)
+                st.success(f"✅ {arq.name} carregado com {len(df)} linhas")
+                # Exibe amostra para você ver que carregou
+                st.dataframe(df.head(10), use_container_width=True)
+            except:
+                st.error(f"❌ Erro ao ler {arq.name}")
+    st.balloons()
 
-# Adicionar venda manual
-st.subheader("➕ Adicionar nova venda ou edição")
-with st.form("add"):
-    col1, col2 = st.columns(2)
+# Adicionar manual (futurista)
+st.subheader("➕ Nova venda / edição")
+col1, col2 = st.columns(2)
+with st.form("form_nova"):
     cliente = col1.text_input("Cliente")
-    venda = col2.number_input("Valor da venda (R$)", min_value=0.0, step=50.0)
-    custo_anuncio = col1.number_input("Custo anúncio (R$)", min_value=0.0, step=50.0)
-    editor = col2.text_input("Editor (Miura, Ana Paula, Elaine, Nicole...)")
-    valor_editor = st.number_input("Valor pago ao editor (R$)", min_value=0.0, step=50.0)
+    valor_venda = col2.number_input("Valor da venda R$", min_value=0.0, step=10.0)
+    custo_anuncio = col1.number_input("Custo anúncio R$", min_value=0.0, step=10.0)
+    editor = col2.text_input("Editor (Miura, Ana Paula, Elaine...)")
+    valor_editor = st.number_input("Valor pago ao editor R$", min_value=0.0, step=10.0)
     
-    if st.form_submit_button("✅ Salvar"):
-        lucro = venda - custo_anuncio - valor_editor
-        nova_linha = pd.DataFrame([{
-            "data": datetime.now().date(),
+    if st.form_submit_button("🚀 SALVAR NO SISTEMA"):
+        lucro = valor_venda - custo_anuncio - valor_editor
+        nova = pd.DataFrame([{
+            "ano": datetime.now().year,
             "cliente": cliente,
-            "venda": venda,
+            "venda": valor_venda,
             "custo_anuncio": custo_anuncio,
             "editor": editor or "Sem editor",
             "valor_editor": valor_editor,
             "lucro": lucro
         }])
-        st.session_state.master = pd.concat([st.session_state.master, nova_linha], ignore_index=True)
-        st.success("Salvo com sucesso!")
+        st.session_state.dados = pd.concat([st.session_state.dados, nova], ignore_index=True)
+        st.success("✅ Salvo com sucesso!")
 
 # Dashboard
-st.subheader("📊 Resumo Geral")
-if not st.session_state.master.empty:
-    total_venda = st.session_state.master["venda"].sum()
-    total_editor = st.session_state.master["valor_editor"].sum()
-    total_lucro = st.session_state.master["lucro"].sum()
+st.subheader("📊 Resumo Futurista")
+if not st.session_state.dados.empty:
+    tv = st.session_state.dados["venda"].sum()
+    te = st.session_state.dados["valor_editor"].sum()
+    tl = st.session_state.dados["lucro"].sum()
     
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Vendas Totais", f"R$ {total_venda:,.2f}")
-    col2.metric("Custo Total Editores", f"R$ {total_editor:,.2f}", delta_color="off")
-    col3.metric("Lucro Total", f"R$ {total_lucro:,.2f}")
-    col4.metric("ROI Médio", f"{(total_venda / (st.session_state.master['custo_anuncio'].sum() + total_editor + 0.01)):.2f}x")
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("VENDAS TOTAIS", f"R$ {tv:,.2f}")
+    c2.metric("CUSTO EDITORES", f"R$ {te:,.2f}")
+    c3.metric("LUCRO TOTAL", f"R$ {tl:,.2f}", delta_color="normal")
+    c4.metric("ROI", f"{(tv/(te+1)):.2f}x")
     
-    # Tabela de editores
     st.subheader("🔥 Desempenho dos Editores")
-    editores = st.session_state.master.groupby("editor").agg(
-        valor_pago=("valor_editor", "sum"),
-        vendas_geradas=("venda", "sum")
-    ).reset_index()
-    editores["ROI"] = (editores["vendas_geradas"] / editores["valor_pago"]).round(2)
-    st.dataframe(editores, use_container_width=True, hide_index=True)
+    ed = st.session_state.dados.groupby("editor").agg(
+        pago=("valor_editor","sum"), gerado=("venda","sum")
+    ).round(2)
+    ed["ROI"] = (ed["gerado"] / ed["pago"]).round(2)
+    st.dataframe(ed, use_container_width=True)
 else:
     st.info("Ainda não há dados. Faça upload ou adicione manualmente.")
 
 # Download
-if not st.session_state.master.empty:
-    csv = st.session_state.master.to_csv(index=False).encode()
-    st.download_button("📥 Baixar tudo em Excel/CSV", csv, "v-lion_dados_completos.csv", "text/csv")
+if not st.session_state.dados.empty:
+    csv = st.session_state.dados.to_csv(index=False).encode()
+    st.download_button("📥 Baixar tudo em CSV", csv, "v-lion_dados.csv", "text/csv")
 
-st.caption("App feito especialmente para V-Lion • Totalmente personalizável")
+st.caption("App moderno e futurista feito para V-Lion Produções")
