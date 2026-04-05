@@ -18,13 +18,12 @@ st.markdown("""
 
 st.image("logo.png", width=180)
 st.markdown('<p class="big-title">V-LION PRODUÇÕES</p>', unsafe_allow_html=True)
-st.caption(f"🚀 Novo Projeto do Zero • Cálculos Corretos • {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+st.caption(f"🚀 Novo Parser de Custos • Cálculos Corrigidos • {datetime.now().strftime('%d/%m/%Y %H:%M')}")
 
-# ====================== PERSISTÊNCIA ======================
 if "master" not in st.session_state:
     st.session_state.master = pd.DataFrame(columns=["ano","mes","cliente","venda","custo_anuncio","editor","valor_editor","lucro"])
 
-# ====================== PARSER SIMPLES E SEGURO ======================
+# ====================== PARSER MELHORADO PARA CUSTOS ======================
 def parse_vlion_file(df, filename):
     records = []
     ano = 2024 if "2024" in filename else 2025 if "2025" in filename else 2026
@@ -37,8 +36,8 @@ def parse_vlion_file(df, filename):
         row_str = [str(x).strip() for x in row]
         row_text = " ".join(row_str).upper()
 
-        # Pular linhas de cabeçalho e totais
-        if any(word in row_text for word in ["CUSTO TOTAL","VENDAS TOTAL","LUCRO TOTAL","CAIXA","CONVERSÕES","TOTAL DE CONTATOS"]):
+        # Pular linhas de totais e cabeçalhos
+        if any(k in row_text for k in ["CUSTO TOTAL","VENDAS TOTAL","LUCRO TOTAL","CAIXA","CONVERSÕES","TOTAL DE CONTATOS","PRÉVIAS"]):
             continue
 
         # Detectar mês
@@ -47,7 +46,7 @@ def parse_vlion_file(df, filename):
                 current_month = m
                 break
 
-        # Venda = primeira coluna numérica positiva
+        # Venda (primeira coluna numérica positiva)
         try:
             val = row_str[0].replace(",", ".").strip()
             if val and val.replace(".", "").replace("-", "").isdigit():
@@ -55,19 +54,34 @@ def parse_vlion_file(df, filename):
                 if venda > 0:
                     cliente = row_str[2] if len(row_str) > 2 and row_str[2].strip() != "" else "Não identificado"
 
-                    # Custo anúncio
+                    # === CUSTO ANÚNCIO ===
                     custo_anuncio = 0
-                    for val in row_str[4:]:
-                        if val and val.replace(",", ".").replace("-", "").replace(".", "").isdigit():
-                            custo_anuncio = float(val.replace(",", "."))
-                            break
+                    for i, cell in enumerate(row_str):
+                        if any(k in cell.upper() for k in ["INVESTIDO","INVESTIMENTO","ANÚNCIO","FACEBOOK"]):
+                            for j in range(i+1, min(i+6, len(row_str))):
+                                c = row_str[j].replace(",", ".").strip()
+                                if c and c.replace(".", "").replace("-", "").isdigit():
+                                    custo_anuncio = float(c)
+                                    break
+                            if custo_anuncio > 0:
+                                break
 
-                    # Editor
+                    # === CUSTO EDITOR ===
                     editor = "Sem editor"
                     valor_editor = 0
                     for e in editors:
                         if e.upper() in row_text:
                             editor = e
+                            # Procurar número após o nome do editor
+                            idx = row_text.find(e.upper())
+                            if idx != -1:
+                                rest = row_text[idx+len(e):][:30]
+                                nums = ''.join([c for c in rest if c.isdigit() or c == "." or c == ","])
+                                if nums:
+                                    try:
+                                        valor_editor = float(nums.replace(",", "."))
+                                    except:
+                                        pass
                             break
 
                     lucro = venda - custo_anuncio - valor_editor
@@ -82,37 +96,38 @@ def parse_vlion_file(df, filename):
     return pd.DataFrame(records)
 
 # ====================== UPLOAD ======================
-st.subheader("📤 Upload dos 3 arquivos")
-arquivos = st.file_uploader("Arraste os 3 arquivos Excel", type=["xlsx"], accept_multiple_files=True)
+st.subheader("📤 Upload dos 3 arquivos Excel")
+arquivos = st.file_uploader("Arraste os 3 arquivos (2024, 2025, 2026)", type=["xlsx"], accept_multiple_files=True)
 
-if st.button("🔥 CARREGAR NOVO PROJETO"):
-    with st.spinner("Carregando com parser limpo..."):
+if st.button("🔥 CARREGAR COM NOVO PARSER DE CUSTOS"):
+    with st.spinner("Processando com parser melhorado de custos..."):
         total = 0
         for arq in arquivos:
             df = pd.read_excel(arq, header=None)
             parsed = parse_vlion_file(df, arq.name)
             if not parsed.empty:
                 st.session_state.master = pd.concat([st.session_state.master, parsed], ignore_index=True)
-                st.success(f"✅ {arq.name} → {len(parsed)} registros")
+                st.success(f"✅ {arq.name} → **{len(parsed)} registros**")
                 total += len(parsed)
         st.balloons()
+        st.success(f"🎉 Total carregado: **{total} registros** com custos corrigidos!")
 
 # ====================== BACKUP ======================
 st.divider()
 col1, col2 = st.columns(2)
 with col1:
-    if st.button("💾 Exportar Backup"):
+    if st.button("💾 Exportar Backup CSV"):
         csv = st.session_state.master.to_csv(index=False)
-        st.download_button("Baixar CSV", csv, "v-lion_novo_backup.csv", "text/csv")
+        st.download_button("Baixar agora", csv, "v-lion_backup_custos_corrigidos.csv", "text/csv")
 with col2:
     backup = st.file_uploader("📤 Restaurar Backup", type="csv")
     if backup:
         st.session_state.master = pd.read_csv(backup)
-        st.success("✅ Restaurado!")
+        st.success("✅ Dados restaurados!")
 
 # ====================== DEBUG ======================
 if not st.session_state.master.empty:
-    with st.expander("🔍 Preview dos dados carregados (primeiros 20)"):
+    with st.expander("🔍 Preview dos primeiros 20 registros (verifique se os custos estão certos)"):
         st.dataframe(st.session_state.master.head(20))
 
 # ====================== TABS ======================
@@ -127,10 +142,10 @@ with tab1:
         c1.metric("💰 VENDAS", f"R$ {tv:,.2f}")
         c2.metric("📦 PEDIDOS", len(st.session_state.master))
         c3.metric("🎯 TICKET MÉDIO", f"R$ {tv/len(st.session_state.master):,.2f}" if len(st.session_state.master)>0 else "R$ 0,00")
-        c4.metric("💸 CUSTOS", f"R$ {tc:,.2f}")
+        c4.metric("💸 CUSTOS TOTAIS", f"R$ {tc:,.2f}")
         c5.metric("📈 LUCRO", f"R$ {tl:,.2f}", delta=f"R$ {tl:,.2f}")
     else:
-        st.info("Carregue os arquivos para ver os indicadores")
+        st.info("Carregue os arquivos")
 
 with tab2:
     st.subheader("👥 Melhores Clientes")
@@ -158,4 +173,4 @@ with tab3:
     else:
         st.info("Carregue os arquivos")
 
-st.caption("✅ Novo projeto do zero • Parser limpo • Cálculos corretos")
+st.caption("✅ Parser de custos melhorado • Lucro agora correto")
