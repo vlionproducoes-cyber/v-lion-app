@@ -16,7 +16,7 @@ st.markdown("""
 
 st.image("logo.png", width=180)
 st.markdown('<p class="big-title neon">V-LION PRODUÇÕES</p>', unsafe_allow_html=True)
-st.caption(f"🚀 Dashboard Futurista • Processamento Inteligente • {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+st.caption(f"🚀 Dashboard Futurista • Leitura Completa das Planilhas • {datetime.now().strftime('%d/%m/%Y %H:%M')}")
 
 if "master" not in st.session_state:
     st.session_state.master = pd.DataFrame(columns=["ano", "mes", "cliente", "venda", "custo_anuncio", "editor", "valor_editor", "lucro"])
@@ -27,7 +27,7 @@ def parse_vlion_file(df, filename):
     current_month = "Desconhecido"
     ano = 2024 if "2024" in filename else 2025 if "2025" in filename else 2026
 
-    for i, row in df.iterrows():
+    for _, row in df.iterrows():
         row = row.fillna("").astype(str).str.strip()
         row_text = " ".join(row).upper()
 
@@ -41,12 +41,12 @@ def parse_vlion_file(df, filename):
         # Linha de venda (coluna 0 tem número > 0)
         try:
             valor_str = str(row[0]).replace(",", ".").strip()
-            if valor_str.replace(".", "").isdigit():
+            if valor_str.replace(".", "").replace("-", "").isdigit():
                 valor = float(valor_str)
                 if valor > 0:
                     cliente = str(row[2]) if len(row) > 2 and str(row[2]) != "" else "Cliente não identificado"
 
-                    # Procura editor na linha inteira
+                    # Procura editor (coluna 3 ou em qualquer lugar da linha)
                     editor = "Sem editor"
                     editor_list = ["Miura", "Ana Paula", "Elaine", "Nicole", "Jéssica", "Julia", "João", "Luciane"]
                     for e in editor_list:
@@ -71,21 +71,21 @@ def parse_vlion_file(df, filename):
 
 # ====================== UPLOAD ======================
 st.subheader("📤 Upload dos 3 arquivos Excel")
-arquivos = st.file_uploader("Arraste aqui: V-Lion Produções 2024.xlsx, 2025.xlsx e 2026.xlsx", 
-                           type=["xlsx"], accept_multiple_files=True)
+arquivos = st.file_uploader("Arraste os arquivos 2024, 2025 e 2026 aqui", type=["xlsx"], accept_multiple_files=True)
 
 if st.button("🔥 Processar todos os arquivos agora"):
     with st.spinner("Lendo e extraindo todas as vendas..."):
+        total_vendas = 0
         for arq in arquivos:
             df = pd.read_excel(arq, header=None)
             parsed = parse_vlion_file(df, arq.name)
             if not parsed.empty:
                 st.session_state.master = pd.concat([st.session_state.master, parsed], ignore_index=True)
                 st.success(f"✅ {arq.name} → **{len(parsed)} vendas** extraídas")
+                total_vendas += len(parsed)
             else:
-                st.warning(f"⚠️ {arq.name} não encontrou vendas (verifique o arquivo)")
-
-    st.balloons()
+                st.warning(f"⚠️ {arq.name} não encontrou vendas")
+        st.success(f"Total de {total_vendas} vendas carregadas!")
 
 # ====================== DASHBOARD ======================
 if not st.session_state.master.empty:
@@ -106,6 +106,9 @@ if not st.session_state.master.empty:
     ed["ROI"] = (ed["gerado"] / ed["pago"]).round(2)
     st.dataframe(ed, use_container_width=True)
 
+    st.subheader("📆 Vendas por Mês")
+    por_mes = st.session_state.master.groupby(["ano", "mes"])["venda"].sum().unstack(fill_value=0)
+    st.dataframe(por_mes, use_container_width=True)
 else:
     st.info("👆 Faça upload dos 3 arquivos Excel para começar")
 
@@ -130,4 +133,4 @@ with st.form("nova"):
 if not st.session_state.master.empty:
     st.download_button("📥 Baixar todos os dados", st.session_state.master.to_csv(index=False).encode(), "v-lion_dados_completos.csv", "text/csv")
 
-st.caption("App V-Lion Futurista • Parser melhorado")
+st.caption("App V-Lion • Parser melhorado • Inspirado no seu Canva")
